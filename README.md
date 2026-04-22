@@ -1,120 +1,61 @@
 # MCP Notion Server
 
-A powerful Model Context Protocol (MCP) server that provides comprehensive integration with Notion API, enabling advanced page management, content creation, and workspace operations.
+Status: beta
 
-**📖 For Claude Code Integration**: See `CLAUDE.md` for MCP Hub usage patterns and Portuguese language examples.
+MCP server for common Notion page workflows. It focuses on creating, reading, updating, and extending pages, with support for rich blocks and reusable templates.
 
-## Features
+## Why this exists
 
-### Core Capabilities
-- 🔍 **Advanced Search**: Full-text search across Notion workspace
-- 📄 **Page Management**: Create, read, update pages with rich formatting
-- 🎨 **Rich Content Creation**: Support for 11+ block types with formatting
-- 📋 **Professional Templates**: 6 pre-built templates for common use cases
-- 🌐 **Portuguese Localization**: User-friendly responses in Portuguese
-- 🚀 **Performance Optimized**: Intelligent caching and request batching
-- 🔒 **Enterprise Security**: Token validation, rate limiting, audit logging
-- ⚡ **Error Recovery**: Automatic retry with exponential backoff
+The Notion API is flexible but verbose for routine documentation tasks. This server gives an MCP client a narrower toolset for the workflows that come up most often in personal knowledge management and team documentation:
+- find pages,
+- inspect page content,
+- create structured pages,
+- append formatted blocks,
+- start from reusable templates.
 
-### Production-Ready Features
-- **Comprehensive Testing**: 90%+ code coverage with unit and integration tests
-- **Robust Error Handling**: Classified errors with retry mechanisms
-- **Security Management**: Token validation, rate limiting, audit logging
-- **Intelligent Caching**: Multi-layer caching with 60%+ hit rate
-- **Configuration Management**: Hot-reloadable config with environment support
-- **Performance Monitoring**: Metrics collection and health checks
-- **Type Safety**: Full TypeScript with strict mode
+## What it includes
 
-## Installation
+- 10 MCP tools for page discovery and content creation
+- basic page CRUD-style operations
+- rich block creation for headings, paragraphs, lists, callouts, quotes, dividers, code blocks, and to-dos
+- reusable page templates such as meeting notes, project plans, documentation, weekly reports, and bug reports
+- support for creating a new page through automatic parent discovery when an explicit parent is not provided
+- `CLAUDE.md` with MCP Hub-oriented examples in Portuguese
+
+## Quickstart
+
+Prerequisites:
+- Node.js 18+
+- A Notion internal integration token with access to the pages you want to work with
+
+1. Install dependencies
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/mcp-notion.git
+git clone https://github.com/ftaricano/mcp-notion.git
 cd mcp-notion
-
-# Install dependencies
 npm install
+```
 
-# Build the project
+2. Provide the Notion token
+
+```bash
+export NOTION_TOKEN=your_notion_integration_token
+```
+
+3. Build the server
+
+```bash
 npm run build
 ```
 
-## Configuration
-
-### Environment Variables
-
-Create a `.env` file:
-
-```env
-# Required
-NOTION_TOKEN=your_notion_integration_token
-
-# Optional Configuration
-NOTION_API_VERSION=2022-06-28
-NOTION_TIMEOUT=60000
-NOTION_MAX_RETRIES=3
-
-# Cache Configuration
-CACHE_ENABLED=true
-CACHE_TTL=300000
-CACHE_MAX_SIZE=100
-
-# Security
-VALIDATE_TOKEN=true
-MAX_REQUESTS_PER_MINUTE=60
-ENABLE_AUDIT_LOG=true
-
-# Monitoring
-LOG_LEVEL=info
-METRICS_ENABLED=true
-```
-
-### Configuration File
-
-Create `.mcp-notion.json` for advanced configuration:
-
-```json
-{
-  "notion": {
-    "token": "your_token_here",
-    "version": "2022-06-28",
-    "timeoutMs": 60000,
-    "retryConfig": {
-      "maxAttempts": 3,
-      "baseDelay": 1000,
-      "maxDelay": 30000
-    }
-  },
-  "cache": {
-    "enabled": true,
-    "ttl": 300000,
-    "maxSize": 100,
-    "strategy": "memory"
-  },
-  "security": {
-    "validateToken": true,
-    "maxRequestsPerMinute": 60,
-    "enableAuditLog": true
-  },
-  "features": {
-    "enableDatabaseOperations": false,
-    "enableBlockEditing": true,
-    "enableTemplates": true,
-    "enableRichText": true
-  }
-}
-```
-
-## MCP Configuration
-
-Add to your Claude Desktop configuration:
+4. Add it to your MCP client
 
 ```json
 {
   "mcpServers": {
     "notion": {
       "command": "node",
-      "args": ["/path/to/mcp-notion/dist/index.js"],
+      "args": ["/absolute/path/to/mcp-notion/dist/index.js"],
       "env": {
         "NOTION_TOKEN": "your_notion_integration_token"
       }
@@ -123,219 +64,113 @@ Add to your Claude Desktop configuration:
 }
 ```
 
-## Available Tools (10 Total)
+## Typical use cases
 
-**🚨 MCP Hub Integration**: These tools are accessible via the MCP Hub using `call-tool("notion", "tool_name", {...})`. For Portuguese language queries, use `smart-search()` for intelligent tool discovery.
+- create structured notes under an existing parent page,
+- search a workspace for project or reference pages,
+- generate recurring documentation from templates,
+- append formatted sections to a page after meetings or reviews,
+- create a new page under an automatically discovered accessible parent when a specific parent is not known.
 
-### Basic Operations (5 tools)
-- `search_pages` - Search for Notion pages by title
-- `get_page` - Get basic information about a page
-- `get_page_content` - Get the content blocks of a page
-- `create_page` - Create a basic page with text
-- `update_page` - Update a page title
+## Available tools
 
-### Enhanced Operations (5 tools)
-- `create_rich_page` - Create pages with rich formatting and multiple block types
-- `create_page_from_template` - Use professional templates (meeting notes, project plans, etc.)
-- `add_content_blocks` - Add formatted content to existing pages
-- `list_templates` - List all available page templates
-- `create_root_page` - Create independent pages in workspace root
+### Core page operations
+- `search_pages`
+- `get_page`
+- `get_page_content`
+- `create_page`
+- `update_page`
 
-**See `CLAUDE.md` for detailed tool documentation and usage examples with MCP Hub.**
+### Rich content and templates
+- `create_rich_page`
+- `create_page_from_template`
+- `add_content_blocks`
+- `list_templates`
+- `create_root_page`
 
-## Usage Examples
+## Supported block types
 
-### Search for Pages
-```typescript
+The rich page tools currently support:
+- `heading_1`, `heading_2`, `heading_3`
+- `paragraph`
+- `bulleted_list_item`, `numbered_list_item`
+- `to_do`
+- `callout`
+- `quote`
+- `divider`
+- `code`
+
+## Template set
+
+- `meeting_notes`
+- `project_plan`
+- `documentation`
+- `article`
+- `weekly_report`
+- `bug_report`
+
+## Example tool calls
+
+Create a simple page:
+
+```json
 {
-  "tool": "search_pages",
+  "tool": "create_page",
   "arguments": {
-    "query": "project",
-    "page_size": 10
+    "parent_page_id": "page-id",
+    "title": "Weekly Notes",
+    "content": "Draft agenda"
   }
 }
 ```
 
-### Create Rich Page
-```typescript
+Create a richer page:
+
+```json
 {
   "tool": "create_rich_page",
   "arguments": {
-    "parent_page_id": "parent-id",
+    "parent_page_id": "page-id",
     "title": "Project Overview",
     "blocks": [
-      {
-        "type": "heading_1",
-        "content": "🚀 Project Goals"
-      },
-      {
-        "type": "callout",
-        "content": "Important milestone ahead!",
-        "icon": "⚠️"
-      },
-      {
-        "type": "code",
-        "content": "console.log('Hello World');",
-        "language": "javascript"
-      }
+      { "type": "heading_1", "content": "Overview" },
+      { "type": "paragraph", "content": "Current scope and next steps." },
+      { "type": "to_do", "content": "Confirm milestones", "checked": false }
     ]
   }
 }
 ```
 
-### Use Templates
-```typescript
+Create from a template:
+
+```json
 {
   "tool": "create_page_from_template",
   "arguments": {
-    "parent_page_id": "parent-id",
-    "title": "Team Meeting - Q4 Planning",
+    "parent_page_id": "page-id",
+    "title": "Sprint Review",
     "template": "meeting_notes",
     "variables": {
-      "date": "2024-08-16",
-      "facilitator": "João Silva",
-      "attendees": "Team A, Team B"
+      "date": "2026-04-22",
+      "facilitator": "Fernando"
     }
   }
 }
 ```
 
-## Available Templates
+## MCP Hub usage
 
-1. **meeting_notes** - Professional meeting documentation
-2. **project_plan** - Comprehensive project planning
-3. **documentation** - Technical documentation structure
-4. **article** - Blog post or article format
-5. **weekly_report** - Weekly status reports
-6. **bug_report** - Software bug documentation
-
-## Supported Block Types
-
-- `heading_1`, `heading_2`, `heading_3` - Headers with emoji support
-- `paragraph` - Text paragraphs with formatting
-- `bulleted_list_item`, `numbered_list_item` - Lists
-- `to_do` - Checkable todo items
-- `callout` - Highlighted callout boxes with icons
-- `quote` - Quoted text blocks
-- `code` - Code blocks with syntax highlighting
-- `divider` - Visual separators
+If you use this server behind MCP Hub, see `CLAUDE.md` for the hub-specific calling patterns and Portuguese examples.
 
 ## Development
 
-### Scripts
-
 ```bash
-# Development
-npm run dev           # Run with hot reload
-npm run build         # Build TypeScript
-npm run clean         # Clean build artifacts
-
-# Testing
-npm test              # Run all tests
-npm run test:unit     # Unit tests only
-npm run test:coverage # With coverage report
-npm run test:watch    # Watch mode
-
-# Code Quality
-npm run lint          # ESLint check
-npm run format        # Prettier format
-npm run type-check    # TypeScript validation
-```
-
-### Testing
-
-The project includes comprehensive testing:
-
-- **Unit Tests**: All utilities and core functions
-- **Integration Tests**: MCP server communication
-- **Coverage**: >90% code coverage target
-
-Run tests:
-```bash
+npm run build
+npm run lint
+npm run type-check
 npm test
-npm run test:coverage
 ```
-
-## Architecture
-
-```
-mcp-notion/
-├── src/
-│   ├── index.ts           # Main MCP server
-│   ├── tools/
-│   │   └── pages.ts       # Page operation tools
-│   ├── utils/
-│   │   ├── blocks.ts      # Block creation utilities
-│   │   ├── richText.ts    # Rich text formatting
-│   │   ├── templates.ts   # Page templates
-│   │   └── errorHandler.ts # Error handling
-│   ├── config/
-│   │   └── configManager.ts # Configuration management
-│   ├── security/
-│   │   ├── tokenValidator.ts # Token validation
-│   │   └── rateLimiter.ts    # Rate limiting
-│   └── cache/
-│       └── cacheManager.ts   # Cache implementation
-├── tests/
-│   ├── unit/              # Unit tests
-│   └── integration/       # Integration tests
-└── dist/                  # Compiled output
-```
-
-## Performance
-
-- **Response Time**: <500ms for cached operations
-- **Cache Hit Rate**: >60% for frequently accessed content
-- **Error Rate**: <1% for all operations
-- **Rate Limiting**: 60 requests/minute (Notion API limit)
-- **Retry Logic**: 3 attempts with exponential backoff
-
-## Security
-
-- **Token Validation**: Validates Notion API tokens on startup
-- **Rate Limiting**: Prevents API abuse and respects Notion limits
-- **Audit Logging**: Tracks all operations for security analysis
-- **Input Validation**: Zod schemas for all tool inputs
-- **Error Sanitization**: Removes sensitive data from error messages
-
-## Error Handling
-
-The server implements comprehensive error handling:
-
-- **Automatic Retry**: Transient failures are retried automatically
-- **Error Classification**: Errors are classified as temporary, permanent, auth, or rate limit
-- **User-Friendly Messages**: Portuguese error messages for better UX
-- **Correlation IDs**: Track errors across the request lifecycle
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Run tests (`npm test`)
-4. Commit your changes (`git commit -m 'Add amazing feature'`)
-5. Push to the branch (`git push origin feature/amazing-feature`)
-6. Open a Pull Request
 
 ## License
 
-MIT License - see LICENSE file for details
-
-## Support
-
-For issues and questions:
-- Open an issue on GitHub
-- Check the test files for usage examples
-- Review the TypeScript definitions for detailed API information
-
-## Roadmap
-
-- [ ] Database operations support (coming soon)
-- [ ] Block-level editing capabilities
-- [ ] Advanced filtering and sorting
-- [ ] Webhook support for real-time updates
-- [ ] Multi-workspace support
-- [ ] Export/import functionality
-
----
-
-Built with ❤️ for the MCP ecosystem
+MIT
