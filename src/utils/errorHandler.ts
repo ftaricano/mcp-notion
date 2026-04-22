@@ -1,4 +1,5 @@
 import { APIResponseError } from '@notionhq/client';
+import { ZodError } from 'zod';
 
 export enum ErrorType {
   TEMPORARY = 'temporary',
@@ -57,6 +58,10 @@ export class NotionMCPError extends Error {
 }
 
 export function classifyError(error: any): ErrorType {
+  if (error instanceof ZodError) {
+    return ErrorType.VALIDATION;
+  }
+
   if (error instanceof APIResponseError) {
     const code = String((error as any).code || '');
     if (code === 'unauthorized' || code === 'restricted_resource') return ErrorType.AUTH;
@@ -98,26 +103,26 @@ export async function withRetry<T>(
   baseDelay = 1000
 ): Promise<T> {
   let lastError: Error | undefined;
-  
+
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       context.attempt = attempt;
       context.maxAttempts = maxAttempts;
-      
+
       const result = await operation();
-      
+
       // Success - log if it was a retry
       if (attempt > 1) {
         console.log(`✅ Operation succeeded on attempt ${attempt}:`, context.operation);
       }
-      
+
       return result;
     } catch (error) {
       lastError = error as Error;
-      
+
       const errorType = classifyError(error);
       const isRetryable = isRetryableError(error);
-      
+
       // Log error details
       console.error(`❌ Attempt ${attempt}/${maxAttempts} failed:`, {
         operation: context.operation,
@@ -125,7 +130,7 @@ export async function withRetry<T>(
         message: lastError.message,
         retryable: isRetryable,
       });
-      
+
       // Don't retry if not retryable or last attempt
       if (!isRetryable || attempt === maxAttempts) {
         throw new NotionMCPError(
@@ -136,30 +141,27 @@ export async function withRetry<T>(
           false
         );
       }
-      
+
       // Calculate delay with exponential backoff
       const delay = calculateBackoffDelay(attempt, baseDelay, errorType);
-      
+
       console.log(`⏳ Waiting ${delay}ms before retry...`);
       await sleep(delay);
     }
   }
-  
-  // Should never reach here, but TypeScript needs this
+
   throw lastError;
 }
 
 function calculateBackoffDelay(attempt: number, baseDelay: number, errorType: ErrorType): number {
-  // Rate limit errors get longer delays
   if (errorType === ErrorType.RATE_LIMIT) {
-    return Math.min(baseDelay * Math.pow(2, attempt) * 2, 60000); // Max 1 minute
+    return Math.min(baseDelay * Math.pow(2, attempt) * 2, 60000);
   }
-  
-  // Regular exponential backoff with jitter
+
   const exponentialDelay = baseDelay * Math.pow(2, attempt - 1);
-  const jitter = Math.random() * 0.3 * exponentialDelay; // 30% jitter
-  
-  return Math.min(exponentialDelay + jitter, 30000); // Max 30 seconds
+  const jitter = Math.random() * 0.3 * exponentialDelay;
+
+  return Math.min(exponentialDelay + jitter, 30000);
 }
 
 function sleep(ms: number): Promise<void> {
@@ -171,18 +173,12 @@ export function generateCorrelationId(): string {
 }
 
 export function sanitizeErrorForUser(error: any): string {
-  // Remove sensitive information from error messages
   let message = error.message || 'Unknown error';
-  
-  // Remove token references
+
   message = message.replace(/token[:\s]*[^\s]+/gi, 'token: [REDACTED]');
-  
-  // Remove IDs that might be sensitive
   message = message.replace(/[a-f0-9]{32}/gi, '[ID]');
-  
-  // Remove URLs that might contain sensitive data
   message = message.replace(/https?:\/\/[^\s]+/gi, '[URL]');
-  
+
   return message;
 }
 
@@ -192,31 +188,30 @@ export class ErrorLogger {
     error: NotionMCPError;
     resolved: boolean;
   }> = [];
-  
+
   static log(error: NotionMCPError): void {
     this.errors.push({
       timestamp: new Date(),
       error,
       resolved: false,
     });
-    
-    // Keep only last 100 errors
+
     if (this.errors.length > 100) {
       this.errors = this.errors.slice(-100);
     }
   }
-  
+
   static markResolved(correlationId: string): void {
     const entry = this.errors.find(e => e.error.context.correlationId === correlationId);
     if (entry) {
       entry.resolved = true;
     }
   }
-  
+
   static getRecentErrors(limit = 10): typeof ErrorLogger.errors {
     return this.errors.slice(-limit);
   }
-  
+
   static getErrorStats(): {
     total: number;
     byType: Record<ErrorType, number>;
@@ -229,7 +224,7 @@ export class ErrorLogger {
       resolved: 0,
       unresolved: 0,
     };
-    
+
     for (const entry of this.errors) {
       stats.byType[entry.error.type] = (stats.byType[entry.error.type] || 0) + 1;
       if (entry.resolved) {
@@ -238,7 +233,7 @@ export class ErrorLogger {
         stats.unresolved++;
       }
     }
-    
+
     return stats;
   }
 }

@@ -218,12 +218,12 @@ call-tool("notion", "create_page_from_template", {
 ```
 
 #### 8. `add_content_blocks` 📦
-Adicionar blocos de conteúdo formatado a uma página existente.
+Adicionar blocos de conteúdo formatado ao final de uma página existente.
 
 **Parâmetros**:
 - `page_id` (string, obrigatório): ID da página
 - `blocks` (array, obrigatório): Array de blocos formatados
-- `position` (enum, opcional): "append" (final) ou "prepend" (início), padrão: "append"
+- `position` (enum, opcional): apenas "append" é suportado em runtime, padrão: "append"
 
 **Exemplo**:
 ```typescript
@@ -257,7 +257,7 @@ call-tool("notion", "list_templates", {})
 ```
 
 #### 10. `create_root_page` 🌟
-Criar página independente no root do workspace com formatação avançada.
+Criar página sob um parent raiz explicitamente configurado com formatação avançada.
 
 **Parâmetros**:
 - `title` (string, obrigatório): Título da página
@@ -265,6 +265,7 @@ Criar página independente no root do workspace com formatação avançada.
 - `template` (enum, opcional): Template a usar se content_type for "template"
 - `variables` (object, opcional): Variáveis para customização do template
 - `blocks` (array, opcional): Blocos formatados se content_type for "rich"
+- Requer `NOTION_ROOT_PARENT_PAGE_ID` ou `MCP_NOTION_ROOT_PARENT_PAGE_ID` configurado no ambiente
 
 **Exemplo com Template**:
 ```typescript
