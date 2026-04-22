@@ -48,7 +48,7 @@ import {
 let notion: Client | undefined;
 const runtimeSecurityConfig = loadRuntimeSecurityConfig();
 
-async function initializeNotion() {
+export async function initializeNotion() {
   const token = process.env.NOTION_TOKEN;
   if (!token) {
     throw new NotionMCPError(
@@ -759,7 +759,10 @@ async function main() {
   await server.connect(transport);
 }
 
-main().catch((error) => {
-  console.error('Server failed to start:', error);
-  process.exit(1);
-});
+if (process.env.NODE_ENV !== 'test') {
+  main().catch((error) => {
+    console.error('Server failed to start:', error);
+    process.exit(1);
+  });
+}
+
