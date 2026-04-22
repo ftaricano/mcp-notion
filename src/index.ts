@@ -439,11 +439,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 
 // Tool execution handler
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  if (!notion) {
-    notion = await initializeNotion();
-  }
-  const notionClient = notion as Client;
-
   const { name, arguments: args } = request.params;
   const correlationId = generateCorrelationId();
 
@@ -454,6 +449,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       : undefined;
 
   try {
+    if (!notion) {
+      notion = await initializeNotion();
+    }
+    const notionClient = notion as Client;
     await enforceRateLimit(name, runtimeSecurityConfig);
     if (pageIdFromArgs) {
       assertPageAccess(pageIdFromArgs, runtimeSecurityConfig, name);
