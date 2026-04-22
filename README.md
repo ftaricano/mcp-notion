@@ -19,7 +19,7 @@ The Notion API is flexible but verbose for routine documentation tasks. This ser
 - basic page CRUD-style operations
 - rich block creation for headings, paragraphs, lists, callouts, quotes, dividers, code blocks, and to-dos
 - reusable page templates such as meeting notes, project plans, documentation, weekly reports, and bug reports
-- support for creating a new top-level page through workspace parent discovery
+- support for creating a new page through automatic parent discovery when an explicit parent is not provided
 - `CLAUDE.md` with MCP Hub-oriented examples in Portuguese
 
 ## Quickstart
@@ -70,7 +70,7 @@ npm run build
 - search a workspace for project or reference pages,
 - generate recurring documentation from templates,
 - append formatted sections to a page after meetings or reviews,
-- create a workspace-level entry point page when a specific parent is not known.
+- create a new page under an automatically discovered accessible parent when a specific parent is not known.
 
 ## Available tools
 
