@@ -19,7 +19,8 @@ The Notion API is flexible but verbose for routine documentation tasks. This ser
 - basic page CRUD-style operations
 - rich block creation for headings, paragraphs, lists, callouts, quotes, dividers, code blocks, and to-dos
 - reusable page templates such as meeting notes, project plans, documentation, weekly reports, and bug reports
-- support for creating a new page through automatic parent discovery when an explicit parent is not provided
+- optional runtime guardrails via token validation, request throttling, and page allow/block lists
+- `create_root_page` only when a root parent is explicitly configured via `NOTION_ROOT_PARENT_PAGE_ID` or `MCP_NOTION_ROOT_PARENT_PAGE_ID`
 - `CLAUDE.md` with MCP Hub-oriented examples in Portuguese
 
 ## Quickstart
@@ -70,7 +71,7 @@ npm run build
 - search a workspace for project or reference pages,
 - generate recurring documentation from templates,
 - append formatted sections to a page after meetings or reviews,
-- create a new page under an automatically discovered accessible parent when a specific parent is not known.
+- create a new page under a preconfigured root parent when a specific parent is not known.
 
 ## Available tools
 
@@ -84,9 +85,23 @@ npm run build
 ### Rich content and templates
 - `create_rich_page`
 - `create_page_from_template`
-- `add_content_blocks`
+- `add_content_blocks` (`append` only)
 - `list_templates`
-- `create_root_page`
+- `create_root_page` (requires configured root parent)
+
+## Runtime guardrails
+
+Environment variables supported by the runtime:
+- Set `VALIDATE_TOKEN` to `false` to skip startup token validation
+- `MAX_REQUESTS_PER_MINUTE=60` to control in-process request throttling
+- `ALLOWED_PAGE_IDS=id1,id2` to restrict operations to an allowlist
+- `BLOCKED_PAGE_IDS=id3,id4` to deny specific pages
+- `NOTION_ROOT_PARENT_PAGE_ID=<page-id>` or `MCP_NOTION_ROOT_PARENT_PAGE_ID=<page-id>` to enable `create_root_page`
+
+Notes:
+- Notion page IDs must be UUIDs with or without hyphens.
+- `get_page_content` returns a bounded preview and block summary instead of raw block JSON.
+- `add_content_blocks` no longer claims `prepend` support because the runtime only performs safe append operations.
 
 ## Supported block types
 

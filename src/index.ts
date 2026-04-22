@@ -11,16 +11,15 @@ import {
   CreateRichPageSchema,
   CreatePageFromTemplateSchema,
   AddContentBlocksSchema,
-  ListTemplatesSchema,
   CreateRootPageSchema,
   createRichPage,
   createPageFromTemplate,
   addContentBlocks,
   listTemplates,
   createRootPage,
-  getWorkspaceParent,
   formatPageResponse,
   formatBlocksResponse,
+  formatPageContentResponse,
 } from './tools/pages.js';
 
 // Import error handling
@@ -31,47 +30,68 @@ import {
   NotionMCPError,
   ErrorType,
   sanitizeErrorForUser,
+  classifyError,
 } from './utils/errorHandler.js';
+import {
+  notionIdSchema,
+  safeTitleSchema,
+  searchQuerySchema,
+  optionalPlainContentSchema,
+  assertPageAccess,
+  enforceRateLimit,
+  loadRuntimeSecurityConfig,
+  validateTokenIfEnabled,
+  auditOperation,
+} from './security/runtimePolicy.js';
 
 // Initialize Notion client
 let notion: Client | undefined;
+const runtimeSecurityConfig = loadRuntimeSecurityConfig();
 
-function initializeNotion() {
+async function initializeNotion() {
   const token = process.env.NOTION_TOKEN;
   if (!token) {
-    throw new Error('NOTION_TOKEN environment variable is required');
+    throw new NotionMCPError(
+      'NOTION_TOKEN environment variable is required',
+      ErrorType.AUTH,
+      { operation: 'initialize_notion' },
+      undefined,
+      false
+    );
   }
-  
+
+  await validateTokenIfEnabled(token, runtimeSecurityConfig);
+
   notion = new Client({
     auth: token,
   });
-  
+
   return notion;
 }
 
 // Original tool schemas (kept for compatibility)
 const SearchPagesSchema = z.object({
-  query: z.string().describe('Text to search for in page titles'),
-  page_size: z.number().optional().default(10).describe('Number of results to return'),
+  query: searchQuerySchema.describe('Text to search for in page titles'),
+  page_size: z.number().int().min(1).max(100).optional().default(10).describe('Number of results to return'),
 });
 
 const GetPageSchema = z.object({
-  page_id: z.string().describe('Notion page ID'),
+  page_id: notionIdSchema.describe('Notion page ID'),
 });
 
 const GetPageContentSchema = z.object({
-  page_id: z.string().describe('Notion page ID'),
+  page_id: notionIdSchema.describe('Notion page ID'),
 });
 
 const CreatePageSchema = z.object({
-  parent_page_id: z.string().describe('Parent page ID where the new page will be created'),
-  title: z.string().describe('Title of the new page'),
-  content: z.string().optional().describe('Initial content for the page'),
+  parent_page_id: notionIdSchema.describe('Parent page ID where the new page will be created'),
+  title: safeTitleSchema.describe('Title of the new page'),
+  content: optionalPlainContentSchema.describe('Initial content for the page'),
 });
 
 const UpdatePageSchema = z.object({
-  page_id: z.string().describe('Page ID to update'),
-  title: z.string().optional().describe('New title for the page'),
+  page_id: notionIdSchema.describe('Page ID to update'),
+  title: safeTitleSchema.optional().describe('New title for the page'),
 });
 
 // Server setup
@@ -323,9 +343,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             position: {
               type: 'string',
-              enum: ['append', 'prepend'],
+              enum: ['append'],
               default: 'append',
-              description: 'Where to add the blocks (append to end or prepend to beginning)'
+              description: 'Where to add the blocks. Runtime currently supports append only.'
             }
           },
           required: ['page_id', 'blocks']
@@ -342,7 +362,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'create_root_page',
-        description: '🌟 Create a new independent page in workspace root with advanced formatting and templates',
+        description: '🌟 Create a page under a configured root parent (requires NOTION_ROOT_PARENT_PAGE_ID or MCP_NOTION_ROOT_PARENT_PAGE_ID)',
         inputSchema: {
           type: 'object',
           properties: {
@@ -419,15 +439,24 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 
 // Tool execution handler
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  if (!notion) {
-    notion = initializeNotion();
-  }
-  const notionClient = notion as Client;
-
   const { name, arguments: args } = request.params;
   const correlationId = generateCorrelationId();
 
+  const pageIdFromArgs = typeof args?.page_id === 'string'
+    ? args.page_id
+    : typeof args?.parent_page_id === 'string'
+      ? args.parent_page_id
+      : undefined;
+
   try {
+    if (!notion) {
+      notion = await initializeNotion();
+    }
+    const notionClient = notion as Client;
+    await enforceRateLimit(name, runtimeSecurityConfig);
+    if (pageIdFromArgs) {
+      assertPageAccess(pageIdFromArgs, runtimeSecurityConfig, name);
+    }
     switch (name) {
       // Original tools (kept for compatibility)
       case 'search_pages': {
@@ -458,6 +487,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           };
         });
 
+        auditOperation({ operation: name, success: true }, runtimeSecurityConfig);
         return {
           content: [
             {
@@ -481,6 +511,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const title = page.properties?.title?.title?.[0]?.text?.content || 'Sem título';
         const lastEdited = new Date(page.last_edited_time).toLocaleDateString('pt-BR');
 
+        auditOperation({ operation: name, pageId: page_id, success: true }, runtimeSecurityConfig);
         return {
           content: [
             {
@@ -498,23 +529,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'get_page_content': {
         const { page_id } = GetPageContentSchema.parse(args);
-        
+
         const blocks = await notionClient.blocks.children.list({
           block_id: page_id,
         });
 
-        const blockCount = blocks.results.length;
-        const blockTypes = blocks.results.map((block: any) => block.type).join(', ');
-
+        auditOperation({ operation: name, pageId: page_id, success: true }, runtimeSecurityConfig);
         return {
           content: [
             {
               type: 'text',
-              text: `📦 **Conteúdo da Página:**\n\n` +
-                `**Total de blocos:** ${blockCount}\n` +
-                `**Tipos de bloco:** ${blockTypes}\n\n` +
-                `**Detalhes completos:**\n` +
-                JSON.stringify(blocks.results, null, 2),
+              text: formatPageContentResponse(blocks),
             },
           ],
         };
@@ -561,6 +586,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         const page = await notionClient.pages.create(pageData);
 
+        auditOperation({ operation: name, pageId: parent_page_id, success: true }, runtimeSecurityConfig);
         return {
           content: [
             {
@@ -596,6 +622,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           ...updateData,
         });
 
+        auditOperation({ operation: name, pageId: page_id, success: true }, runtimeSecurityConfig);
         return {
           content: [
             {
@@ -611,6 +638,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const parsedArgs = CreateRichPageSchema.parse(args);
         const page = await createRichPage(notionClient, parsedArgs);
 
+        auditOperation({ operation: name, pageId: parsedArgs.parent_page_id, success: true }, runtimeSecurityConfig);
         return {
           content: [
             {
@@ -625,6 +653,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const parsedArgs = CreatePageFromTemplateSchema.parse(args);
         const page = await createPageFromTemplate(notionClient, parsedArgs);
 
+        auditOperation({ operation: name, pageId: parsedArgs.parent_page_id, success: true }, runtimeSecurityConfig);
         return {
           content: [
             {
@@ -641,6 +670,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const parsedArgs = AddContentBlocksSchema.parse(args);
         const response = await addContentBlocks(notionClient, parsedArgs);
 
+        auditOperation({ operation: name, pageId: parsedArgs.page_id, success: true }, runtimeSecurityConfig);
         return {
           content: [
             {
@@ -654,6 +684,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'list_templates': {
         const templates = await listTemplates();
 
+        auditOperation({ operation: name, success: true }, runtimeSecurityConfig);
         return {
           content: [
             {
@@ -672,6 +703,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const parsedArgs = CreateRootPageSchema.parse(args);
         const page = await createRootPage(notionClient, parsedArgs);
 
+        auditOperation({ operation: name, success: true }, runtimeSecurityConfig);
         return {
           content: [
             {
@@ -689,12 +721,31 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         throw new Error(`Unknown tool: ${name}`);
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    const classifiedType = classifyError(error);
+    const normalizedError = error instanceof NotionMCPError
+      ? error
+      : new NotionMCPError(
+          error instanceof Error ? error.message : 'Unknown error occurred',
+          classifiedType,
+          { operation: name, correlationId },
+          error instanceof Error ? error : undefined,
+          false
+        );
+
+    ErrorLogger.log(normalizedError);
+    auditOperation({
+      operation: name,
+      pageId: pageIdFromArgs,
+      success: false,
+      error: normalizedError.type,
+    }, runtimeSecurityConfig);
+
+    const safeMessage = normalizedError.userMessage || sanitizeErrorForUser(normalizedError);
     return {
       content: [
         {
           type: 'text',
-          text: `❌ **Erro:** ${errorMessage}\n\n💡 **Dica:** Verifique se o page_id é válido e se você tem as permissões necessárias.`,
+          text: `${safeMessage}\n\n🪪 **Correlation ID:** ${correlationId}`,
         },
       ],
       isError: true,
