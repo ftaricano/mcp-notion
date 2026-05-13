@@ -1,16 +1,19 @@
 {
   "name": "@mcp/notion",
   "version": "1.0.0",
-  "description": "MCP server for common Notion page workflows, including rich pages and reusable templates.",
+  "description": "MCP server + human CLI for common Notion page workflows, including rich pages and reusable templates.",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "mcp-notion": "./dist/index.js"
+    "mcp-notion": "./dist/index.js",
+    "notion": "./dist/cli.js"
   },
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/index.ts",
+    "dev:cli": "tsx src/cli.ts",
     "start": "node dist/index.js",
+    "start:cli": "node dist/cli.js",
     "clean": "rm -rf dist coverage",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write src",
