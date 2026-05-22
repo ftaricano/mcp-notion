@@ -362,7 +362,7 @@ Todas as ferramentas que aceitam blocos suportam annotations:
 
 ```env
 # Obrigatório
-NOTION_TOKEN=secret_your_notion_integration_token
+NOTION_TOKEN=your_notion_token_from_secret_store
 
 # Opcional (com defaults)
 NOTION_API_VERSION=2022-06-28

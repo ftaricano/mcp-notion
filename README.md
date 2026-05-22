@@ -1,55 +1,111 @@
 # MCP Notion Server
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](https://nodejs.org)
+![MCP](https://img.shields.io/badge/MCP-compatible-8A2BE2.svg)
+
 Status: beta
 
-MCP server for common Notion page workflows. It focuses on creating, reading, updating, and extending pages, with support for rich blocks and reusable templates.
+MCP server + human CLI for common Notion page workflows: search pages, inspect content, create structured pages, append rich blocks, and start documents from reusable templates.
 
-## Why this exists
+## Requirements
 
-The Notion API is flexible but verbose for routine documentation tasks. This server gives an MCP client a narrower toolset for the workflows that come up most often in personal knowledge management and team documentation:
-- find pages,
-- inspect page content,
-- create structured pages,
-- append formatted blocks,
-- start from reusable templates.
-
-## What it includes
-
-- 10 MCP tools for page discovery and content creation
-- basic page CRUD-style operations
-- rich block creation for headings, paragraphs, lists, callouts, quotes, dividers, code blocks, and to-dos
-- reusable page templates such as meeting notes, project plans, documentation, weekly reports, and bug reports
-- optional runtime guardrails via token validation, request throttling, and page allow/block lists
-- `create_root_page` only when a root parent is explicitly configured via `NOTION_ROOT_PARENT_PAGE_ID` or `MCP_NOTION_ROOT_PARENT_PAGE_ID`
-- `CLAUDE.md` with MCP Hub-oriented examples in Portuguese
-
-## Quickstart
-
-Prerequisites:
 - Node.js 18+
-- A Notion internal integration token with access to the pages you want to work with
+- A Notion token with access to the target pages
+- A Notion page shared with the integration when you want to create or update content
 
-1. Install dependencies
+## Install
+
+From npm after publishing:
+
+```bash
+npm install -g @mcp/notion
+```
+
+From source:
 
 ```bash
 git clone https://github.com/ftaricano/mcp-notion.git
 cd mcp-notion
 npm install
-```
-
-2. Provide the Notion token
-
-```bash
-export NOTION_TOKEN=your_notion_integration_token
-```
-
-3. Build the server
-
-```bash
 npm run build
 ```
 
-4. Add it to your MCP client
+## Configure Notion Auth
+
+Create a local environment file:
+
+```bash
+cp .env.example .env
+```
+
+Set `NOTION_TOKEN` in `.env` or in your MCP client environment. Do not commit `.env`.
+
+### Internal Integration Token
+
+1. Open https://www.notion.so/my-integrations.
+2. Create an internal integration.
+3. Copy the integration secret into `NOTION_TOKEN`.
+4. Share the target Notion pages with that integration.
+
+### OAuth Token
+
+Notion OAuth apps can also provide an access token. This package does not run the OAuth browser authorization flow; pass the OAuth access token as `NOTION_TOKEN` after your OAuth app obtains it.
+
+Use the smallest workspace/page access needed. If a token leaks, revoke or rotate it in Notion and remove it from local env files, shell profiles, CI secrets, and MCP client configs.
+
+## Quickstart
+
+Check local config without calling Notion:
+
+```bash
+notion --env-file .env auth status
+```
+
+Test the token against Notion:
+
+```bash
+notion --env-file .env --timeout 10s auth test
+```
+
+List available MCP tools:
+
+```bash
+notion list
+```
+
+Search pages:
+
+```bash
+notion --env-file .env search_pages --query "Release notes" --page_size=5
+```
+
+Create a page under a parent page:
+
+```bash
+notion --env-file .env create_page \
+  --parent_page_id=11111111-1111-1111-1111-111111111111 \
+  --title="Weekly Notes" \
+  --content="Draft agenda"
+```
+
+Create a formatted page from JSON:
+
+```bash
+notion --env-file .env create_rich_page --json '{
+  "parent_page_id": "11111111-1111-1111-1111-111111111111",
+  "title": "Project Overview",
+  "blocks": [
+    { "type": "heading_1", "content": "Overview" },
+    { "type": "paragraph", "content": "Current scope and next steps." },
+    { "type": "to_do", "content": "Confirm milestones", "checked": false }
+  ]
+}'
+```
+
+## MCP Client Setup
+
+Use the built server entrypoint with any stdio MCP client:
 
 ```json
 {
@@ -58,64 +114,77 @@ npm run build
       "command": "node",
       "args": ["/absolute/path/to/mcp-notion/dist/index.js"],
       "env": {
-        "NOTION_TOKEN": "your_notion_integration_token"
+        "NOTION_TOKEN": "your-token-from-a-secret-store",
+        "VALIDATE_TOKEN": "true",
+        "MAX_REQUESTS_PER_MINUTE": "60"
       }
     }
   }
 }
 ```
 
-## Typical use cases
+For local source checkouts, build before connecting:
 
-- create structured notes under an existing parent page,
-- search a workspace for project or reference pages,
-- generate recurring documentation from templates,
-- append formatted sections to a page after meetings or reviews,
-- create a new page under a preconfigured root parent when a specific parent is not known.
+```bash
+npm run build
+node dist/index.js
+```
 
-## Available tools
+For installed npm packages, point your client at the `mcp-notion` binary when your runtime can resolve global npm bins.
 
-### Core page operations
+## CLI Reference
+
+```bash
+notion list
+notion schema <tool>
+notion auth status
+notion auth test
+notion <tool> --key=value [--other=value]
+notion <tool> --json '{"key":"value"}'
+```
+
+Global options:
+
+- `--env-file <path>` loads environment variables before running.
+- `--timeout <value>` accepts values such as `5000` or `10s`.
+- `--compact` prints JSON output on one line where supported.
+
+## Available MCP Tools
+
+Core page operations:
+
 - `search_pages`
 - `get_page`
 - `get_page_content`
 - `create_page`
 - `update_page`
 
-### Rich content and templates
+Rich content and templates:
+
 - `create_rich_page`
 - `create_page_from_template`
 - `add_content_blocks` (`append` only)
 - `list_templates`
-- `create_root_page` (requires configured root parent)
+- `create_root_page`
 
-## Runtime guardrails
+`create_root_page` requires `NOTION_ROOT_PARENT_PAGE_ID` or `MCP_NOTION_ROOT_PARENT_PAGE_ID`.
 
-Environment variables supported by the runtime:
-- Set `VALIDATE_TOKEN` to `false` to skip startup token validation
-- `MAX_REQUESTS_PER_MINUTE=60` to control in-process request throttling
-- `ALLOWED_PAGE_IDS=id1,id2` to restrict operations to an allowlist
-- `BLOCKED_PAGE_IDS=id3,id4` to deny specific pages
-- `NOTION_ROOT_PARENT_PAGE_ID=<page-id>` or `MCP_NOTION_ROOT_PARENT_PAGE_ID=<page-id>` to enable `create_root_page`
+## Runtime Guardrails
 
-Notes:
-- Notion page IDs must be UUIDs with or without hyphens.
-- `get_page_content` returns a bounded preview and block summary instead of raw block JSON.
-- `add_content_blocks` no longer claims `prepend` support because the runtime only performs safe append operations.
+Environment variables:
 
-## Supported block types
+- `NOTION_TOKEN` - required for live Notion calls.
+- `VALIDATE_TOKEN=false` - skips startup token validation for offline/local smoke tests.
+- `MAX_REQUESTS_PER_MINUTE=60` - controls in-process request throttling.
+- `ENABLE_AUDIT_LOG=false` - disables local operation audit logging.
+- `ALLOWED_PAGE_IDS=id1,id2` - restricts operations to an allowlist.
+- `BLOCKED_PAGE_IDS=id3,id4` - denies specific pages.
+- `NOTION_ROOT_PARENT_PAGE_ID=<page-id>` - enables `create_root_page`.
+- `MCP_NOTION_ROOT_PARENT_PAGE_ID=<page-id>` - compatibility alias for the same root parent.
 
-The rich page tools currently support:
-- `heading_1`, `heading_2`, `heading_3`
-- `paragraph`
-- `bulleted_list_item`, `numbered_list_item`
-- `to_do`
-- `callout`
-- `quote`
-- `divider`
-- `code`
+Notion page IDs may use UUIDs with or without hyphens.
 
-## Template set
+## Templates
 
 - `meeting_notes`
 - `project_plan`
@@ -124,68 +193,32 @@ The rich page tools currently support:
 - `weekly_report`
 - `bug_report`
 
-## Example tool calls
-
-Create a simple page:
-
-```json
-{
-  "tool": "create_page",
-  "arguments": {
-    "parent_page_id": "page-id",
-    "title": "Weekly Notes",
-    "content": "Draft agenda"
-  }
-}
-```
-
-Create a richer page:
-
-```json
-{
-  "tool": "create_rich_page",
-  "arguments": {
-    "parent_page_id": "page-id",
-    "title": "Project Overview",
-    "blocks": [
-      { "type": "heading_1", "content": "Overview" },
-      { "type": "paragraph", "content": "Current scope and next steps." },
-      { "type": "to_do", "content": "Confirm milestones", "checked": false }
-    ]
-  }
-}
-```
-
-Create from a template:
-
-```json
-{
-  "tool": "create_page_from_template",
-  "arguments": {
-    "parent_page_id": "page-id",
-    "title": "Sprint Review",
-    "template": "meeting_notes",
-    "variables": {
-      "date": "2026-04-22",
-      "facilitator": "Fernando"
-    }
-  }
-}
-```
-
-## MCP Hub usage
-
-If you use this server behind MCP Hub, see `CLAUDE.md` for the hub-specific calling patterns and Portuguese examples.
-
 ## Development
 
 ```bash
+npm install
 npm run build
 npm run lint
 npm run type-check
 npm test
+npm run pack:dry-run
 ```
+
+`npm run test:unit` runs fast unit coverage. `npm run test:integration` verifies package metadata, security docs, and the npm pack file list.
+
+## Security
+
+See [SECURITY.md](SECURITY.md). The short version:
+
+- keep real tokens out of git,
+- use Notion workspace/page permissions to limit access,
+- use `ALLOWED_PAGE_IDS` and `BLOCKED_PAGE_IDS` for runtime blast-radius control,
+- report vulnerabilities through GitHub Security Advisories.
+
+## MCP Hub Usage
+
+If you use this server behind MCP Hub, see [CLAUDE.md](CLAUDE.md) for hub-specific calling patterns and Portuguese examples.
 
 ## License
 
-MIT
+[MIT](LICENSE)

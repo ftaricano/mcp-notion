@@ -194,7 +194,7 @@ npm start`, 'bash'),
     Blocks.h2('⚙️ Configuração'),
     Blocks.text('Variáveis de ambiente necessárias:'),
     Blocks.code(`DATABASE_URL=postgresql://localhost:5432/dbname
-API_KEY=your-api-key-here
+EXAMPLE_SERVICE_KEY=replace-me
 PORT=3000`, 'env'),
     
     Blocks.h2('📡 API Reference'),

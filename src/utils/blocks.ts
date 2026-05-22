@@ -1,5 +1,5 @@
 // Block creation utilities for Notion API
-import { createRichText, createRichTextArray, Colors, type TextAnnotations, type RichTextElement } from './richText.js';
+import { createRichText, createRichTextArray, type TextAnnotations, type RichTextElement } from './richText.js';
 
 export type BlockType = 
   | 'paragraph'
