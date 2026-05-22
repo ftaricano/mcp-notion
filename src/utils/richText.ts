@@ -73,18 +73,6 @@ export function createRichTextArray(content: string | RichTextElement[]): RichTe
  * Supports: **bold**, *italic*, `code`, ~~strikethrough~~, [link](url)
  */
 export function parseMarkdownText(text: string): RichTextElement[] {
-  const result: RichTextElement[] = [];
-  let currentIndex = 0;
-
-  // Simple regex patterns for markdown
-  const patterns = [
-    { regex: /\*\*(.*?)\*\*/g, format: { bold: true } },
-    { regex: /\*(.*?)\*/g, format: { italic: true } },
-    { regex: /`(.*?)`/g, format: { code: true } },
-    { regex: /~~(.*?)~~/g, format: { strikethrough: true } },
-    { regex: /\[([^\]]+)\]\(([^)]+)\)/g, format: {}, hasLink: true },
-  ];
-
   // For now, return simple rich text
   // TODO: Implement full markdown parsing
   return [createRichText(text)];
