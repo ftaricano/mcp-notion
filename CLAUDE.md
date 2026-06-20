@@ -1,10 +1,74 @@
-# CLAUDE.md - Notion MCP Server
+# CLAUDE.md -- mcp-notion
 
-## 🎯 Overview
+MCP server e CLI para operações com a API do Notion: busca de páginas, criação de conteúdo rico e uso de templates reutilizáveis.
 
-Servidor MCP poderoso que fornece integração completa com a API do Notion, permitindo gerenciamento avançado de páginas, criação de conteúdo rico e operações no workspace.
+## O que e
 
-**📖 LEITURA ESSENCIAL**: Para documentação técnica completa, veja `/mcp-notion/README.md`
+Servidor MCP (`@mcp/notion`) que expõe 10 ferramentas para interagir com o Notion via Model Context Protocol. Inclui CLI humano (`notion`) para uso local e CI. Consumido via MCP Hub (padrão recomendado) ou diretamente via stdio em qualquer cliente MCP. Parte do ecossistema de integrações do hub do Ferd.
+
+## Stack & estrutura
+
+TypeScript 5 + Node.js 18+ + MCP SDK 1.x + @notionhq/client 2.x + Vitest 3.x
+
+```
+src/
+  index.ts          # entrypoint MCP (stdio)
+  app.ts            # servidor MCP registrável
+  cli.ts            # CLI humano `notion`
+  cli-support.ts    # suporte ao CLI
+  tools/pages.ts    # 10 ferramentas MCP (busca, criação, templates)
+  utils/
+    blocks.ts       # construtores de blocos rich-text
+    richText.ts     # anotações de formatação
+    templates.ts    # 6 templates pré-definidos
+  cache/            # cache em memória (TTL configurável)
+  security/         # rate limiter, policy, token validator
+  config/           # leitura de variáveis de ambiente
+dist/               # output compilado (tsc)
+tests/
+  unit/             # vitest unit tests
+  integration/      # package-contract e smoke tests
+.env.example        # variáveis necessárias (não commitar .env)
+```
+
+## Como rodar / validar
+
+```bash
+# Setup
+npm install
+cp .env.example .env   # editar NOTION_TOKEN
+
+# Build
+npm run build          # tsc → dist/
+
+# Validar (rodar antes de DONE)
+npm run type-check     # tsc --noEmit
+npm run lint           # eslint src
+npm test               # vitest run (unit + integration)
+
+# Dev / smoke test
+npm run dev            # tsx src/index.ts (MCP stdio)
+node dist/cli.js auth status --env-file .env
+```
+
+## Invariantes / regras criticas
+
+- `NOTION_TOKEN` nunca vai para git, logs ou output — usar `.env` local ou secret store do MCP client; `.env` esta no `.gitignore`.
+- `ALLOWED_PAGE_IDS` / `BLOCKED_PAGE_IDS` controlam blast-radius em runtime; respeitar ao criar testes com pages reais.
+- A ferramenta `add_content_blocks` suporta apenas `position: "append"` — nao existe insert/prepend no Notion block API.
+- `create_root_page` requer `NOTION_ROOT_PARENT_PAGE_ID` ou `MCP_NOTION_ROOT_PARENT_PAGE_ID` configurado — falha silenciosa sem ele.
+- Tokens Notion comecam com `secret_` (internal integration) ou sao OAuth access tokens — validar formato antes de depurar erros 401.
+- Rate limit da Notion API: 60 req/min — o servidor implementa retry com backoff, mas operacoes em lote devem respeitar isso.
+- Build e obrigatorio antes de rodar (`npm run build`); `dist/` nao e commitado.
+
+## Gotchas
+
+- O MCP Hub usa `smart-search` + `call-tool("notion", ...)` como padrao; uso direto via stdio nao precisa de Hub.
+- `VALIDATE_TOKEN=false` pula validacao de startup (util para offline/mock em CI sem token real).
+- `tsx` e dev-only — producao sempre usa `node dist/`.
+- Templates sao case-sensitive: `meeting_notes`, `project_plan`, `documentation`, `article`, `weekly_report`, `bug_report`.
+
+---
 
 ## 🚨 USO OBRIGATÓRIO VIA MCP HUB
 
@@ -547,8 +611,8 @@ call-tool("notion", "add_content_blocks", {
 
 ## 📚 Referências
 
-- **README Técnico**: `/mcp-notion/README.md` - Documentação técnica completa
-- **MCP Hub**: `/mcp-hub/README-INTELLIGENT-HUB.md` - Sistema de inteligência
+- **README Técnico**: `README.md` - Documentação técnica completa
+- **MCP Hub**: `repos/tools/jarvis-runtime/mcp-hub/README.md` - Sistema de inteligência
 - **Notion API**: https://developers.notion.com - API oficial do Notion
 - **Templates**: Use `list_templates` para ver estruturas disponíveis
 
