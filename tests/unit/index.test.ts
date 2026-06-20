@@ -20,13 +20,13 @@ describe('key input validation hardening', () => {
 
   it('sanitizes raw auth/init details before showing them to users', () => {
     const sanitized = sanitizeErrorForUser(
-      new Error('token secret_xyz failed for page 12345678123456781234567812345678 at https://api.notion.com/v1/pages/test')
+      new Error('token fake-token-value failed for page 12345678123456781234567812345678 at https://api.notion.com/v1/pages/test')
     );
 
     expect(sanitized).toContain('token: [REDACTED]');
     expect(sanitized).toContain('[ID]');
     expect(sanitized).toContain('[URL]');
-    expect(sanitized).not.toContain('secret_xyz');
+    expect(sanitized).not.toContain('fake-token-value');
     expect(sanitized).not.toContain('12345678123456781234567812345678');
     expect(sanitized).not.toContain('https://api.notion.com');
   });

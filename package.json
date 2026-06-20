@@ -4,26 +4,41 @@
   "description": "MCP server + human CLI for common Notion page workflows, including rich pages and reusable templates.",
   "type": "module",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./app": "./dist/app.js",
+    "./cli": "./dist/cli.js"
+  },
   "bin": {
     "mcp-notion": "./dist/index.js",
     "notion": "./dist/cli.js"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "SECURITY.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/index.ts",
     "dev:cli": "tsx src/cli.ts",
     "start": "node dist/index.js",
     "start:cli": "node dist/cli.js",
-    "clean": "rm -rf dist coverage",
+    "clean": "rm -rf dist coverage *.tgz",
     "lint": "eslint src --ext .ts",
-    "format": "prettier --write src",
-    "test": "vitest run --passWithNoTests",
-    "test:watch": "vitest --watch --passWithNoTests",
-    "test:ui": "vitest --ui --passWithNoTests",
-    "test:coverage": "vitest run --coverage --passWithNoTests",
-    "test:integration": "vitest run tests/integration --passWithNoTests",
-    "test:unit": "vitest run tests/unit --passWithNoTests",
-    "type-check": "tsc --noEmit"
+    "format": "prettier --write README.md SECURITY.md package.json package-lock.json .github/workflows/ci.yml tests/integration/package-contract.test.ts",
+    "format:check": "prettier --check README.md SECURITY.md package.json package-lock.json .github/workflows/ci.yml tests/integration/package-contract.test.ts",
+    "prepack": "npm run clean && npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest --watch",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "test:integration": "vitest run tests/integration",
+    "test:unit": "vitest run tests/unit",
+    "type-check": "tsc --noEmit",
+    "pack:dry-run": "npm pack --dry-run"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
@@ -51,11 +66,28 @@
   },
   "keywords": [
     "mcp",
+    "mcp-server",
     "model-context-protocol",
     "notion",
+    "notion-api",
+    "notion-cli",
     "api",
-    "claude-code"
+    "llm",
+    "claude-code",
+    "productivity"
   ],
   "author": "Fernando Taricano",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ftaricano/mcp-notion.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ftaricano/mcp-notion/issues"
+  },
+  "homepage": "https://github.com/ftaricano/mcp-notion#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false
 }
